@@ -2,12 +2,13 @@
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inColor;
 layout(location = 2) in vec3 inNormal;
+layout(location = 3) in vec2 inUV;
 
 layout(location = 0) out vec3 fragColor;
 layout(location = 1) out vec3 fragNormal;
 layout(location = 2) out vec3 fragWorldPos;
+layout(location = 3) out vec2 fragUV;
 
-// Set 0: Данные сцены
 layout(set = 0, binding = 0) uniform SceneUBO {
     mat4 view;
     mat4 proj;
@@ -15,9 +16,9 @@ layout(set = 0, binding = 0) uniform SceneUBO {
     vec4 ambientColor;
     int numPointLights;
     int numSpotLights;
+    float time; 
 } scene;
 
-// Set 1: Данные модели
 layout(set = 1, binding = 0) uniform ModelUBO {
     mat4 model;
     vec4 albedo;
@@ -32,4 +33,5 @@ void main() {
     fragColor = inColor;
     fragNormal = mat3(transpose(inverse(material.model))) * inNormal;
     fragWorldPos = worldPos.xyz;
+    fragUV = inUV;
 }

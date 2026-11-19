@@ -2,6 +2,7 @@
 layout(location = 0) in vec3 fragColor;
 layout(location = 1) in vec3 fragNormal;
 layout(location = 2) in vec3 fragWorldPos;
+layout(location = 3) in vec2 fragUV;
 
 layout(location = 0) out vec4 outColor;
 
@@ -12,12 +13,15 @@ layout(set = 0, binding = 0) uniform SceneUBO {
     vec4 ambientColor;
     int numPointLights;
     int numSpotLights;
+    float time;
 } scene;
 
+// Явно задаем структуры для SSBO
 struct PointLight {
     vec4 posRadius;
     vec4 colorIntensity;
 };
+
 struct SpotLight {
     vec4 posRadius;
     vec4 dirInner;
@@ -25,8 +29,13 @@ struct SpotLight {
     vec4 outerAngle;
 };
 
-layout(std430, set = 0, binding = 1) readonly buffer PointLights { PointLight lights[]; } pointLights;
-layout(std430, set = 0, binding = 2) readonly buffer SpotLights { SpotLight lights[]; } spotLights;
+layout(std430, set = 0, binding = 1) readonly buffer PointLights { 
+    PointLight lights[]; 
+} pointLights;
+
+layout(std430, set = 0, binding = 2) readonly buffer SpotLights { 
+    SpotLight lights[]; 
+} spotLights;
 
 layout(set = 1, binding = 0) uniform ModelUBO {
     mat4 model;
@@ -35,10 +44,32 @@ layout(set = 1, binding = 0) uniform ModelUBO {
     float shininess;
 } material;
 
+layout(set = 1, binding = 1) uniform sampler2D texAlbedo;
+layout(set = 1, binding = 2) uniform sampler2D texSpecular;
+layout(set = 1, binding = 3) uniform sampler2D texEmissive;
+
+layout(push_constant) uniform Push {
+    int useNontrivialSampling;
+} pc;
+
 void main() {
+    // Нетривиальное сэмплирование (искажение UV по времени)
+    vec2 uv = fragUV;
+    if (pc.useNontrivialSampling == 1) {
+        uv.x += sin(scene.time + uv.y * 10.0) * 0.1;
+        uv.y += cos(scene.time + uv.x * 10.0) * 0.1;
+    }
+
+    // Сэмплируем текстуры
+    vec4 albedoSample = texture(texAlbedo, uv);
+    vec3 specularMask = texture(texSpecular, uv).rgb;
+    vec3 emissiveSample = texture(texEmissive, uv).rgb;
+
+    // Умножаем текстуру на цвет из UI
+    vec3 albedo = albedoSample.rgb * material.albedo.rgb;
+
     vec3 N = normalize(fragNormal);
     vec3 V = normalize(scene.cameraPos.xyz - fragWorldPos);
-    vec3 albedo = fragColor * material.albedo.rgb;
     
     vec3 ambient = scene.ambientColor.rgb * scene.ambientColor.a * albedo;
     vec3 finalColor = ambient;
@@ -58,7 +89,7 @@ void main() {
         vec3 H = normalize(L + V);
         float spec = pow(max(dot(N, H), 0.0), material.shininess);
         
-        finalColor += lightCol * (diff * albedo + material.specular.rgb * spec) * attenuation;
+        finalColor += lightCol * (diff * albedo + material.specular.rgb * spec * specularMask) * attenuation;
     }
 
     // Прожекторы
@@ -85,10 +116,12 @@ void main() {
         vec3 H = normalize(L + V);
         float spec = pow(max(dot(N, H), 0.0), material.shininess);
         
-        finalColor += lightCol * (diff * albedo + material.specular.rgb * spec) * attenuation;
+        finalColor += lightCol * (diff * albedo + material.specular.rgb * spec * specularMask) * attenuation;
     }
 
-    // Защита от пересвета
+    // Добавляем Emissive (свечение в темноте)
+    finalColor += emissiveSample;
+
     finalColor = clamp(finalColor, 0.0, 1.0);
     outColor = vec4(pow(finalColor, vec3(1.0 / 2.2)), 1.0);
 }

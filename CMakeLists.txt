@@ -53,6 +53,11 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/g-truc/glm.git
     GIT_TAG 1.0.1
 )
+FetchContent_Declare(
+	stb
+	GIT_REPOSITORY https://github.com/nothings/stb.git
+	GIT_TAG master
+)
 FetchContent_MakeAvailable(glm)
 
 find_package(Vulkan REQUIRED)
@@ -68,6 +73,7 @@ FetchContent_MakeAvailable(
 	VulkanMemoryAllocator
 	imgui
 )
+FetchContent_MakeAvailable(stb)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
 	glfw
@@ -78,6 +84,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
+target_include_directories(${PROJECT_NAME} PRIVATE ${stb_SOURCE_DIR})
 target_sources(${PROJECT_NAME} PRIVATE
 	${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
 	${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
